@@ -1,38 +1,36 @@
+# Load necessary libraries
+library(reshape2)
 library(ggplot2)
-library(ggpubr)
-library(tidyr) # For pivot_longer
 
-# 示例数据
+# Generate sample data
 set.seed(123)
-data <- data.frame(
-  group = rep(c("A", "B", "C"), each = 20),
-  geneA = c(rnorm(20, mean = 5), rnorm(20, mean = 6), rnorm(20, mean = 7)),
-  geneB = c(rnorm(20, mean = 5.5), rnorm(20, mean = 6.5), rnorm(20, mean = 7.5))
+dat_x <- data.frame(
+  group = rep(c("A", "B"), each = 50),
+  value = c(rnorm(50, mean = 5, sd = 1), rnorm(50, mean = 6, sd = 1))
 )
 
-# 将数据从宽格式转换为长格式
-data_long <- pivot_longer(data, cols = -group, names_to = "gene", values_to = "expression")
+# Reshape the data using melt function
+melt_res <- melt(dat_x, id.vars = "group")
 
-# 绘制箱线图
-p <- ggplot(data_long, aes(x = group, y = expression, fill = group)) +
-  geom_boxplot() +
-  geom_jitter(width = 0.1, alpha = 0.4) +
-  facet_wrap(~gene, scales = "fixed") + # 使用facet_wrap按基因分面,对齐y轴
-  # stat_compare_means(aes(group = group), method = "anova", label.y = 8) + # 添加ANOVA检验
-  stat_compare_means(aes(group = group),
-    comparisons = list(c("A", "B")),
-    method = "t.test", label = "p.signif"
-  ) +
-  labs(
-    title = "Group Comparison for Each Gene",
-    x = "Group",
-    y = "Expression Level"
-  ) +
-  theme(
-    plot.title = element_text(hjust = 0.5),
-    panel.grid = element_blank(),
-    panel.background = element_rect(colour = "black", fill = NA),
-  )
+# Define the boxplot_brca function
+boxplot_brca <- function(melt_res) {
+  comp <- wilcox.test(value ~ group, data = melt_res)
+  stars <- rev(c("ns", "*", "**", "***"))[findInterval(comp$p.value, sort(c(1, 0.05, 0.01, 0.001))) + 1]
+  ggplot(melt_res, aes(group, value)) +
+    geom_violin(aes(fill = group)) +
+    geom_boxplot(aes(fill = group), width = 0.1) +
+    scale_fill_manual(values = c("#FDAF91FF", "#0099B4FF")) +
+    annotate("text", x = 1.5, y = max(melt_res$value) + 0.05, label = stars, size = 6) +
+    ylab("") +
+    xlab("") +
+    theme(
+      axis.title = element_text(size = 12, color = "black"),
+      axis.text = element_text(size = 12, color = "black"),
+      legend.position = "none",
+      panel.grid = element_blank(),
+      panel.background = element_rect(colour = "black", fill = NA)
+    )
+}
 
-# 显示图形
-print(p)
+# Plot the results
+boxplot_brca(melt_res)
